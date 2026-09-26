@@ -5,14 +5,14 @@ import dotenv from "dotenv";
 // Load environment variables
 dotenv.config();
 
-// Routes are outside src/
-import authRoutes from "../routes/authRoutes.js";
-import fileRoutes from "../routes/fileRoutes.js";
-import adminRoutes from "../routes/adminRoutes.js";
+// Your ACTUAL route files
+import authRoutes from "./routes/auth.js";
+import fileRoutes from "./routes/files.js";
+import adminRoutes from "./routes/admin.js";
 
-// Firebase / Cloudinary configuration
-import "../config/firebase.js";
-import "../config/cloudinary.js";
+// Your ACTUAL config files
+import "./config/firebase.js";
+import "./config/cloudinary.js";
 
 const app = express();
 
@@ -37,7 +37,7 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests without an Origin header
+      // Allow requests such as Postman/curl with no Origin
       if (!origin) {
         return callback(null, true);
       }
@@ -198,25 +198,21 @@ app.use((error, req, res, next) => {
    START SERVER
 ========================================================= */
 
-const server = app.listen(
-  PORT,
-  "0.0.0.0",
-  () => {
-    console.log("");
-    console.log("========================================");
-    console.log("          RÉTROVA BACKEND");
-    console.log("========================================");
-    console.log(
-      `Environment : ${process.env.NODE_ENV || "development"}`
-    );
-    console.log(`Port        : ${PORT}`);
-    console.log(`Health      : /health`);
-    console.log(`API         : /api`);
-    console.log("Status      : ONLINE");
-    console.log("========================================");
-    console.log("");
-  }
-);
+const server = app.listen(PORT, "0.0.0.0", () => {
+  console.log("");
+  console.log("========================================");
+  console.log("          RÉTROVA BACKEND");
+  console.log("========================================");
+  console.log(
+    `Environment : ${process.env.NODE_ENV || "development"}`
+  );
+  console.log(`Port        : ${PORT}`);
+  console.log(`Health      : /health`);
+  console.log(`API         : /api`);
+  console.log("Status      : ONLINE");
+  console.log("========================================");
+  console.log("");
+});
 
 /* =========================================================
    GRACEFUL SHUTDOWN
