@@ -5,29 +5,31 @@ import dotenv from "dotenv";
 // Load environment variables
 dotenv.config();
 
-// Your ACTUAL route files
+// Actual route files in your project
 import authRoutes from "./routes/auth.js";
 import fileRoutes from "./routes/files.js";
 import adminRoutes from "./routes/admin.js";
 
-// Your ACTUAL config files
+// Actual config files
 import "./config/firebase.js";
 import "./config/cloudinary.js";
 
 const app = express();
 
 /* =========================================================
-   CONFIGURATION
+   PORT
 ========================================================= */
 
 const PORT = process.env.PORT || 5000;
 
+/* =========================================================
+   ALLOWED FRONTEND ORIGINS
+========================================================= */
+
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
-
-  // Replace this with your actual Netlify frontend URL
-  "https://YOUR-NETLIFY-DOMAIN.netlify.app",
+  "https://euphonious-faloodeh-fb753c.netlify.app",
 ];
 
 /* =========================================================
@@ -37,7 +39,8 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests such as Postman/curl with no Origin
+      // Requests without Origin:
+      // curl, Postman, server-to-server, etc.
       if (!origin) {
         return callback(null, true);
       }
@@ -48,7 +51,9 @@ app.use(
 
       console.warn(`CORS blocked origin: ${origin}`);
 
-      return callback(new Error("Not allowed by CORS"));
+      // Don't throw an error here.
+      // Simply deny the origin.
+      return callback(null, false);
     },
 
     credentials: true,
@@ -63,11 +68,21 @@ app.use(
     ],
 
     allowedHeaders: [
+      "Origin",
+      "X-Requested-With",
       "Content-Type",
+      "Accept",
       "Authorization",
     ],
+
+    optionsSuccessStatus: 204,
   })
 );
+
+/*
+ * Explicitly handle OPTIONS preflight requests.
+ */
+app.options("*", cors());
 
 /* =========================================================
    BODY PARSERS
@@ -99,7 +114,7 @@ app.use((req, res, next) => {
 });
 
 /* =========================================================
-   HEALTH CHECK
+   ROOT / HEALTH CHECK
 ========================================================= */
 
 app.get("/", (req, res) => {
@@ -138,12 +153,20 @@ app.get("/api", (req, res) => {
 });
 
 /* =========================================================
-   API ROUTES
+   AUTH ROUTES
 ========================================================= */
 
 app.use("/api/auth", authRoutes);
 
+/* =========================================================
+   FILE ROUTES
+========================================================= */
+
 app.use("/api/files", fileRoutes);
+
+/* =========================================================
+   ADMIN ROUTES
+========================================================= */
 
 app.use("/api/admin", adminRoutes);
 
@@ -165,18 +188,13 @@ app.use((req, res) => {
 ========================================================= */
 
 app.use((error, req, res, next) => {
-  console.error("=================================");
+  console.error("========================================");
   console.error("RÉTROVA SERVER ERROR");
+  console.error("========================================");
   console.error(error);
-  console.error("=================================");
+  console.error("========================================");
 
-  if (error.message === "Not allowed by CORS") {
-    return res.status(403).json({
-      success: false,
-      message: "CORS policy blocked this request",
-    });
-  }
-
+  /* File upload size error */
   if (error.code === "LIMIT_FILE_SIZE") {
     return res.status(413).json({
       success: false,
@@ -184,13 +202,15 @@ app.use((error, req, res, next) => {
     });
   }
 
+  /* Generic server error */
   return res.status(500).json({
     success: false,
     message: "Internal server error",
-    error:
-      process.env.NODE_ENV === "production"
-        ? undefined
-        : error.message,
+
+    // Don't expose internal errors in production
+    ...(process.env.NODE_ENV !== "production" && {
+      error: error.message,
+    }),
   });
 });
 
@@ -198,43 +218,53 @@ app.use((error, req, res, next) => {
    START SERVER
 ========================================================= */
 
-const server = app.listen(PORT, "0.0.0.0", () => {
-  console.log("");
-  console.log("========================================");
-  console.log("          RÉTROVA BACKEND");
-  console.log("========================================");
-  console.log(
-    `Environment : ${process.env.NODE_ENV || "development"}`
-  );
-  console.log(`Port        : ${PORT}`);
-  console.log(`Health      : /health`);
-  console.log(`API         : /api`);
-  console.log("Status      : ONLINE");
-  console.log("========================================");
-  console.log("");
-});
+const server = app.listen(
+  PORT,
+  "0.0.0.0",
+  () => {
+    console.log("");
+    console.log("========================================");
+    console.log("          RÉTROVA BACKEND");
+    console.log("========================================");
+    console.log(
+      `Environment : ${process.env.NODE_ENV || "development"}`
+    );
+    console.log(`Port        : ${PORT}`);
+    console.log(`Health      : /health`);
+    console.log(`API         : /api`);
+    console.log("Status      : ONLINE");
+    console.log("========================================");
+    console.log("");
+  }
+);
 
 /* =========================================================
    GRACEFUL SHUTDOWN
 ========================================================= */
 
 const shutdown = (signal) => {
-  console.log(`\n${signal} received. Shutting down...`);
+  console.log(`\n${signal} received.`);
+  console.log("Shutting down RÉTROVA backend...");
 
   server.close(() => {
     console.log("RÉTROVA backend stopped.");
     process.exit(0);
   });
 
+  // Force shutdown after 10 seconds
   setTimeout(() => {
     console.error(
-      "Could not close connections in time. Force shutting down."
+      "Could not close connections in time."
     );
 
     process.exit(1);
   }, 10000);
 };
 
-process.on("SIGTERM", () => shutdown("SIGTERM"));
+process.on("SIGTERM", () => {
+  shutdown("SIGTERM");
+});
 
-process.on("SIGINT", () => shutdown("SIGINT"));
+process.on("SIGINT", () => {
+  shutdown("SIGINT");
+});
