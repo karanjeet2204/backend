@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 // Load environment variables
 dotenv.config();
 
-// Actual route files in your project
+// Actual route files
 import authRoutes from "./routes/auth.js";
 import fileRoutes from "./routes/files.js";
 import adminRoutes from "./routes/admin.js";
@@ -39,8 +39,8 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Requests without Origin:
-      // curl, Postman, server-to-server, etc.
+      // Allow requests without an Origin header
+      // such as curl/Postman/server-to-server requests.
       if (!origin) {
         return callback(null, true);
       }
@@ -51,8 +51,6 @@ app.use(
 
       console.warn(`CORS blocked origin: ${origin}`);
 
-      // Don't throw an error here.
-      // Simply deny the origin.
       return callback(null, false);
     },
 
@@ -80,9 +78,17 @@ app.use(
 );
 
 /*
- * Explicitly handle OPTIONS preflight requests.
+ * IMPORTANT:
+ * Do NOT use:
+ *
+ * app.options("*", cors());
+ *
+ * Express 5 throws a PathError for "*".
+ *
+ * The cors middleware above automatically handles
+ * OPTIONS/preflight requests.
  */
-app.options("*", cors());
+
 
 /* =========================================================
    BODY PARSERS
@@ -101,6 +107,7 @@ app.use(
   })
 );
 
+
 /* =========================================================
    REQUEST LOGGER
 ========================================================= */
@@ -113,8 +120,9 @@ app.use((req, res, next) => {
   next();
 });
 
+
 /* =========================================================
-   ROOT / HEALTH CHECK
+   ROOT
 ========================================================= */
 
 app.get("/", (req, res) => {
@@ -127,6 +135,11 @@ app.get("/", (req, res) => {
   });
 });
 
+
+/* =========================================================
+   HEALTH CHECK
+========================================================= */
+
 app.get("/health", (req, res) => {
   res.status(200).json({
     success: true,
@@ -136,6 +149,7 @@ app.get("/health", (req, res) => {
   });
 });
 
+
 /* =========================================================
    API STATUS
 ========================================================= */
@@ -144,6 +158,7 @@ app.get("/api", (req, res) => {
   res.status(200).json({
     success: true,
     message: "RÉTROVA API is running",
+
     endpoints: {
       auth: "/api/auth",
       files: "/api/files",
@@ -152,11 +167,13 @@ app.get("/api", (req, res) => {
   });
 });
 
+
 /* =========================================================
    AUTH ROUTES
 ========================================================= */
 
 app.use("/api/auth", authRoutes);
+
 
 /* =========================================================
    FILE ROUTES
@@ -164,11 +181,13 @@ app.use("/api/auth", authRoutes);
 
 app.use("/api/files", fileRoutes);
 
+
 /* =========================================================
    ADMIN ROUTES
 ========================================================= */
 
 app.use("/api/admin", adminRoutes);
+
 
 /* =========================================================
    404 HANDLER
@@ -183,6 +202,7 @@ app.use((req, res) => {
   });
 });
 
+
 /* =========================================================
    GLOBAL ERROR HANDLER
 ========================================================= */
@@ -194,7 +214,7 @@ app.use((error, req, res, next) => {
   console.error(error);
   console.error("========================================");
 
-  /* File upload size error */
+  // Multer file-size error
   if (error.code === "LIMIT_FILE_SIZE") {
     return res.status(413).json({
       success: false,
@@ -202,17 +222,16 @@ app.use((error, req, res, next) => {
     });
   }
 
-  /* Generic server error */
   return res.status(500).json({
     success: false,
     message: "Internal server error",
 
-    // Don't expose internal errors in production
     ...(process.env.NODE_ENV !== "production" && {
       error: error.message,
     }),
   });
 });
+
 
 /* =========================================================
    START SERVER
@@ -230,20 +249,22 @@ const server = app.listen(
       `Environment : ${process.env.NODE_ENV || "development"}`
     );
     console.log(`Port        : ${PORT}`);
-    console.log(`Health      : /health`);
-    console.log(`API         : /api`);
+    console.log("Health      : /health");
+    console.log("API         : /api");
     console.log("Status      : ONLINE");
     console.log("========================================");
     console.log("");
   }
 );
 
+
 /* =========================================================
    GRACEFUL SHUTDOWN
 ========================================================= */
 
 const shutdown = (signal) => {
-  console.log(`\n${signal} received.`);
+  console.log("");
+  console.log(`${signal} received.`);
   console.log("Shutting down RÉTROVA backend...");
 
   server.close(() => {
@@ -251,7 +272,6 @@ const shutdown = (signal) => {
     process.exit(0);
   });
 
-  // Force shutdown after 10 seconds
   setTimeout(() => {
     console.error(
       "Could not close connections in time."
@@ -260,6 +280,7 @@ const shutdown = (signal) => {
     process.exit(1);
   }, 10000);
 };
+
 
 process.on("SIGTERM", () => {
   shutdown("SIGTERM");
