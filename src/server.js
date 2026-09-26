@@ -5,15 +5,14 @@ import dotenv from "dotenv";
 // Load environment variables
 dotenv.config();
 
-// Import routes
-import authRoutes from "./routes/authRoutes.js";
-import fileRoutes from "./routes/fileRoutes.js";
-import adminRoutes from "./routes/adminRoutes.js";
+// Routes are outside src/
+import authRoutes from "../routes/authRoutes.js";
+import fileRoutes from "../routes/fileRoutes.js";
+import adminRoutes from "../routes/adminRoutes.js";
 
-// Initialize Firebase / Cloudinary configuration
-// These imports ensure configuration is initialized when the server starts.
-import "./config/firebase.js";
-import "./config/cloudinary.js";
+// Firebase / Cloudinary configuration
+import "../config/firebase.js";
+import "../config/cloudinary.js";
 
 const app = express();
 
@@ -23,13 +22,11 @@ const app = express();
 
 const PORT = process.env.PORT || 5000;
 
-// Add your deployed Netlify URL here.
-// Keep localhost entries for local development.
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost:5174",
 
-  // RÉTROVA production frontend
+  // Replace this with your actual Netlify frontend URL
   "https://YOUR-NETLIFY-DOMAIN.netlify.app",
 ];
 
@@ -40,8 +37,7 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin
-      // (Postman, curl, server-to-server requests, etc.)
+      // Allow requests without an Origin header
       if (!origin) {
         return callback(null, true);
       }
@@ -52,9 +48,7 @@ app.use(
 
       console.warn(`CORS blocked origin: ${origin}`);
 
-      return callback(
-        new Error("Not allowed by CORS")
-      );
+      return callback(new Error("Not allowed by CORS"));
     },
 
     credentials: true,
@@ -97,10 +91,8 @@ app.use(
 ========================================================= */
 
 app.use((req, res, next) => {
-  const timestamp = new Date().toISOString();
-
   console.log(
-    `[${timestamp}] ${req.method} ${req.originalUrl}`
+    `[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`
   );
 
   next();
@@ -130,19 +122,6 @@ app.get("/health", (req, res) => {
 });
 
 /* =========================================================
-   API ROUTES
-========================================================= */
-
-// Authentication
-app.use("/api/auth", authRoutes);
-
-// User file operations
-app.use("/api/files", fileRoutes);
-
-// Admin operations
-app.use("/api/admin", adminRoutes);
-
-/* =========================================================
    API STATUS
 ========================================================= */
 
@@ -157,6 +136,16 @@ app.get("/api", (req, res) => {
     },
   });
 });
+
+/* =========================================================
+   API ROUTES
+========================================================= */
+
+app.use("/api/auth", authRoutes);
+
+app.use("/api/files", fileRoutes);
+
+app.use("/api/admin", adminRoutes);
 
 /* =========================================================
    404 HANDLER
@@ -177,11 +166,10 @@ app.use((req, res) => {
 
 app.use((error, req, res, next) => {
   console.error("=================================");
-  console.error("SERVER ERROR");
+  console.error("RÉTROVA SERVER ERROR");
   console.error(error);
   console.error("=================================");
 
-  // CORS error
   if (error.message === "Not allowed by CORS") {
     return res.status(403).json({
       success: false,
@@ -189,11 +177,10 @@ app.use((error, req, res, next) => {
     });
   }
 
-  // Multer errors
   if (error.code === "LIMIT_FILE_SIZE") {
     return res.status(413).json({
       success: false,
-      message: "File size exceeds the 100 MB limit",
+      message: "File size exceeds the allowed limit",
     });
   }
 
@@ -217,12 +204,14 @@ const server = app.listen(
   () => {
     console.log("");
     console.log("========================================");
-    console.log("        RÉTROVA BACKEND");
+    console.log("          RÉTROVA BACKEND");
     console.log("========================================");
-    console.log(`Environment : ${process.env.NODE_ENV || "development"}`);
+    console.log(
+      `Environment : ${process.env.NODE_ENV || "development"}`
+    );
     console.log(`Port        : ${PORT}`);
-    console.log(`Health      : http://localhost:${PORT}/health`);
-    console.log(`API         : http://localhost:${PORT}/api`);
+    console.log(`Health      : /health`);
+    console.log(`API         : /api`);
     console.log("Status      : ONLINE");
     console.log("========================================");
     console.log("");
@@ -241,7 +230,6 @@ const shutdown = (signal) => {
     process.exit(0);
   });
 
-  // Force shutdown after 10 seconds
   setTimeout(() => {
     console.error(
       "Could not close connections in time. Force shutting down."
@@ -252,4 +240,5 @@ const shutdown = (signal) => {
 };
 
 process.on("SIGTERM", () => shutdown("SIGTERM"));
+
 process.on("SIGINT", () => shutdown("SIGINT"));
